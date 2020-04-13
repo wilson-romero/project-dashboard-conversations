@@ -1,57 +1,59 @@
 import React, { useEffect, useState } from 'react';
-import RenderAreaChart from './../components/RenderAreaChart';
-import RenderPieChart from './../components/RenderPieChart';
-import RenderStackedBarChart from './../components/RenderStackedBarChart';
+import RenderAreaChart from '../components/RenderAreaChart';
+import RenderPieChart from '../components/RenderPieChart';
+import RenderStackedBarChart from '../components/RenderStackedBarChart';
+import RenderBubbleChart from '../components/RenderBubbleChart';
+import '../styles/components/App.styl';
+
+import Filter from '../components/Filter';
+
+import { sub, format } from 'date-fns';
 
 const App = () => {
-
-  const [ stats, setStats ] = useState({
-    countConversationsByMonth: [
-      {name: 'Enero', value: 434},
-      {name: 'Febrero', value: 363},
-      {name: 'Marzo', value: 242},
-      {name: 'Abril', value: 842},
-    ],
-    countConversations: 23,
-    groupByRateConversations: [
-      {name: '1', value: 100},
-      {name: '2', value: 200},
-      {name: '3', value: 300},
-      {name: '4', value: 400},
-      {name: '5', value: 500},
-    ],
-    groupByRateConversationsByMonth: [
-      {name: 'Enero', 1: 100, 2: 200, 3: 300, 4: 400, 5: 500},
-      {name: 'Febrero', 1: 234, 2: 454, 3: 453, 4: 978, 5: 500},
-      {name: 'Marzo', 1: 345, 2: 545, 3: 343, 4: 343, 5: 500},
-      {name: 'Abril', 1: 345, 2: 545, 3: 343, 4: 0, 5: 500},
-    ]
+  const [stats, setStats] = useState({
+    countConversations: 0,
+    countConversationsByTime: [],
   });
 
-  // useEffect(() => {
-  //   fetch('http://localhost:3000/api/conversations/stats')
-  //   .then(data => data.json())
-  //   .then(data => setStats(data));
-  // }, []);
+  useEffect(() => {
+    const today = new Date();
+    const endAt = format(today, 'yyyy/MM/dd');
+    const startAt = format(sub(today, {days: 7}), 'yyyy/MM/dd');
+    fetch(`http://localhost:3000/api/conversations/stats?start_date=${startAt}&end_date=${endAt}`)
+      .then(data => data.json())
+      .then(data => setStats(data));
+  }, []);
+
+  const updateFilter = (option) => {
+    const endAt = option.endAt;
+    const startAt = option.startAt;
+    fetch(`http://localhost:3000/api/conversations/stats?start_date=${startAt}&end_date=${endAt}`)
+      .then(data => data.json())
+      .then(data => setStats(data));
+  }
 
   return (
     <div className="container">
       <div className="title">
-        <h1>Total de conversations 2019 {stats.countConversations}</h1>
+        <h1>
+          Total de conversations 2019 <b>{stats.countConversations}</b>
+        </h1>
+        <Filter updateFilter={updateFilter} />
       </div>
       <div className="grid">
         <div className="card">
-          <RenderAreaChart data={stats.countConversationsByMonth} />
+          <RenderAreaChart data={stats.countConversationsByTime} />
         </div>
-        <div className="card">
+        {/* <div className="card">
           <RenderPieChart data={stats.groupByRateConversations} />
         </div>
         <div className="card">
           <RenderStackedBarChart data={stats.groupByRateConversationsByMonth} />
-        </div>
+        </div> */}
         <div className="card">
-
+          {/* <RenderBubbleChart data={stats.groupByRateConversations} /> */}
         </div>
+        <div className="card" />
       </div>
     </div>
   );

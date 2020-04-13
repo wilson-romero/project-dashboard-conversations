@@ -12,7 +12,7 @@ import {
 
 const RenderStackedBarChart = ({ data }) => {
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height="100%">
       <BarChart
         width={400}
         height={400}
@@ -29,6 +29,7 @@ const RenderStackedBarChart = ({ data }) => {
         <Bar dataKey="3" stackId="a" fill="#B70000" />
         <Bar dataKey="4" stackId="a" fill="#0cd1e8" />
         <Bar dataKey="5" stackId="a" fill="#7044ff" />
+        <Bar dataKey="6" stackId="a" fill="#ff509e" />
       </BarChart>
     </ResponsiveContainer>
   );

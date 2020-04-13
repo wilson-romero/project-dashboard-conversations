@@ -1,10 +1,12 @@
 const { ViewQuery } = require('couchbase');
 const faker = require('faker');
+const differenceInDays = require('date-fns/differenceInDays')
 
 const CouchbaseLib = require('./../libs/couchbase');
 
-class ConversationsService {
+const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Aug', 'sep', 'oct', 'nov', 'dic']
 
+class ConversationsService {
   constructor() {
     this.couchbaseClient = new CouchbaseLib();
   }
@@ -31,36 +33,158 @@ class ConversationsService {
     return await this.couchbaseClient.insertDocuments(docs);
   }
 
-  async getStats() {
-    return {
-      countConversationsByMonth: await this.getCountConversationsByMonth(),
-      countConversations: await this.countConversations(),
+  async getStats(startDate, endDate) {
+    const startDateArray = startDate.split('/').map(item => parseInt(item, 10));
+    const endDateArray = endDate.split('/').map(item => parseInt(item, 10));
+
+    const diff = differenceInDays(new Date(endDate), new Date(startDate));
+    console.log('diff', diff);
+    let countConversationsByTime = [];
+    let groupByRateConversationsByTime = [];
+    if (diff <= 30) {
+      countConversationsByTime = await this.getCountConversationsByDays(startDateArray, endDateArray);
+      groupByRateConversationsByTime = await this.getGroupByRateConversationsByDays(startDateArray, endDateArray);
+    } else if(diff > 30 && diff <= 365) {
+      countConversationsByTime = await this.getCountConversationsByMonths(startDateArray, endDateArray);
+      groupByRateConversationsByTime = await this.getGroupByRateConversationsByMonths(startDateArray, endDateArray);
+    } else if(diff > 365) {
+      countConversationsByTime = await this.getCountConversationsByYears(startDateArray, endDateArray);
+      groupByRateConversationsByTime = await this.getGroupByRateConversationsByYears(startDateArray, endDateArray);
     }
+
+    return {
+      countConversations: await this.getCountConversations(startDateArray, endDateArray),
+      countConversationsByTime: countConversationsByTime,
+      groupByRateConversations: await this.getGroupByRateConversations(startDateArray, endDateArray),
+      groupByRateConversationsByTime: groupByRateConversationsByTime
+    };
   }
 
-  async getCountConversationsByMonth() {
-    const viewQuery = ViewQuery
-    .from('conversations', 'count_by_date')
-    .group_level(2);
+  async getCountConversations(startDateArray, endDateArray) {
+    const viewQuery = ViewQuery.from(
+      'conversations',
+      'count_by_date'
+    ).range(startDateArray, endDateArray);
+    const rta = await this.couchbaseClient.runView(viewQuery);
+    if (rta.length > 0) {
+      return rta[0].value;
+    }
+    return 0;
+  }
+
+  async getCountConversationsByYears(startDateArray, endDateArray) {
+    const viewQuery = ViewQuery.from(
+      'conversations',
+      'count_by_date'
+    )
+    .group_level(1)
+    .range(startDateArray, endDateArray);
     const rta = await this.couchbaseClient.runView(viewQuery);
     return rta.map(item => {
       return {
-        label: item.key[1],
+        name: item.key[0],
         value: item.value
       }
-    })
+    });
   }
 
-  async countConversations() {
-    const viewQuery = ViewQuery
-    .from('conversations', 'count_by_date')
-    .group_level(1);
+  async getCountConversationsByMonths(startDateArray, endDateArray) {
+    const viewQuery = ViewQuery.from(
+      'conversations',
+      'count_by_date'
+    )
+    .group_level(2)
+    .range(startDateArray, endDateArray);
+    const rta = await this.couchbaseClient.runView(viewQuery);
+    return rta.map(item => {
+      return {
+        name: item.key.join('/'),
+        value: item.value
+      }
+    });
+  }
+
+  async getCountConversationsByDays(startDateArray, endDateArray) {
+    const viewQuery = ViewQuery.from(
+      'conversations',
+      'count_by_date'
+    )
+    .group_level(3)
+    .range(startDateArray, endDateArray);
+    const rta = await this.couchbaseClient.runView(viewQuery);
+    return rta.map(item => {
+      return {
+        name: item.key.join('/'),
+        value: item.value
+      }
+    });
+  }
+
+
+  async getGroupByRateConversations(startDateArray, endDateArray) {
+    const viewQuery = ViewQuery.from(
+      'conversations',
+      'group_by_rate'
+    )
+    .range(startDateArray, endDateArray);
     const rta = await this.couchbaseClient.runView(viewQuery);
     const values = rta.map(item => item.value);
-    return values.length === 0 ? 0 : values[0];
+    var result = Object.keys(values[0]).map(key => {
+      return {
+        name: key,
+        value: values[0][key]
+      };
+    });
+    return result;
   }
 
+  async getGroupByRateConversationsByYears(startDateArray, endDateArray) {
+    const viewQuery = ViewQuery.from(
+      'conversations',
+      'group_by_rate'
+    )
+    .group_level(1)
+    .range(startDateArray, endDateArray);
+    const rta = await this.couchbaseClient.runView(viewQuery);
+    return rta.map(item => {
+      return {
+        name: item.key[0],
+        ...item.value
+      }
+    });
+  }
 
+  async getGroupByRateConversationsByMonths(startDateArray, endDateArray) {
+    const viewQuery = ViewQuery.from(
+      'conversations',
+      'group_by_rate'
+    )
+    .group_level(2)
+    .range(startDateArray, endDateArray);
+    const rta = await this.couchbaseClient.runView(viewQuery);
+    return rta.map(item => {
+      return {
+        name: item.key.join('/'),
+        ...item.value
+      }
+    });
+  }
+
+  async getGroupByRateConversationsByDays(startDateArray, endDateArray) {
+    const viewQuery = ViewQuery.from(
+      'conversations',
+      'group_by_rate'
+    )
+    .group_level(3)
+    .range(startDateArray, endDateArray);
+    const rta = await this.couchbaseClient.runView(viewQuery);
+    return rta.map(item => {
+      return {
+        name: item.key.join('/'),
+        ...item.value
+      }
+    });
+  }
 }
 
 module.exports = ConversationsService;
